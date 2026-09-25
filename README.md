@@ -3,63 +3,68 @@
 A real-time messenger built with plain HTML, CSS and JS and backed by Supabase.
 
 ## Features
-- Sign up and log in with email and password
-- Search users by username or display name
+
+**Profile**
+- Change your avatar (upload or remove a photo)
+- Change your display name and your **ID (@username)**; availability is checked live as you type
+- Add an "About" bio
+- Copy your internal account ID
+- View other people's profiles: avatar, bio, online status and "last seen"
+
+**Chats**
 - Direct chats (1:1) and group chats
-- Real-time message delivery through Supabase Realtime
-- Edit and delete your own messages
-- File and image attachments (Supabase Storage, bucket `attachments`)
-- Unread message counters
-- Online status (Presence) and "typing…" indicator (Broadcast)
+- Group settings: rename the group, add members, leave the group
+- Delete a direct chat from your own list
+- Search users by name or @id
+- Unread counters, including a counter in the browser tab title
+
+**Messages**
+- Real-time delivery
+- Replies (quote a message and jump to the original)
+- Emoji reactions: 👍 ❤️ 😂 😮 😢 🔥 👎 🎉
+- Read receipts: ✓ sent, ✓✓ read
+- Edit your messages (or press ↑ in an empty input to edit the last one), delete them, copy text
+- Files and images: attach button, drag and drop, or paste with Ctrl+V
+- Links are clickable
+- Search messages inside a chat, with highlighting
+- Multi-line messages: Enter sends, Shift+Enter adds a new line
+
+**Other**
+- Online status and "typing…" indicator
 - Browser notifications
-- Mobile layout
+- Light and dark themes
+- Mobile layout (tap a message to show its actions)
 
 ## Run locally
-There is no build step. Serve the folder with any static server:
+
+Serve the folder with any static server:
 
 ```bash
-npx serve .
-# or
 python3 -m http.server 8080
 ```
 
-Then open http://localhost:8080 (or the address `serve` prints).
+Then open **http://localhost:8080**. Don't use 0.0.0.0: Chrome blocks it.
 
-> Opening `index.html` directly as a file (`file://`) will not work, because ES modules need to be served over http.
+## Backend
 
-## Deploy
-This is a static site, so it works on GitHub Pages, Vercel, Netlify or Cloudflare Pages.
-For GitHub Pages: Settings → Pages → Deploy from branch → `main` / root.
-
-After deploying, add your site's URL in Supabase:
-**Authentication → URL Configuration → Site URL / Redirect URLs**.
-The email-confirmation links use these URLs.
-
-## Backend (already set up)
-Supabase project `messenger` (ref `ubyfjnwplxavuirzejad`, eu-central-1). It contains:
+Supabase project `messenger` (ref `ubyfjnwplxavuirzejad`).
 
 **Tables**
 - `profiles`
 - `conversations`
 - `conversation_members`
 - `messages`
+- `message_reactions`
+
+**Storage buckets**
+- `attachments`
+- `avatars`
 
 **Access control**
-- RLS: users can only see chats they are a member of.
+- RLS is enabled on every table.
 
 **RPC functions**
-- `get_or_create_dm(other_user)`
-- `create_group(group_title, member_ids)`
-
-**Triggers**
-- Create a profile when a user signs up
-- Update `last_message_at` when a message is sent
-
-**Realtime**
-- Enabled on `messages`, `conversations` and `conversation_members`
-
-The keys are in `config.js`. The publishable key is safe to expose in the browser, because data access is controlled by RLS.
-
-## Quick testing
-By default, Supabase requires email confirmation. To test quickly, turn it off:
-**Authentication → Sign In / Providers → Email → Confirm email = off**.
+- `get_or_create_dm`
+- `create_group`
+- `add_group_members`
+- `username_available`

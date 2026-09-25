@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Messenger</title>
   <link rel="stylesheet" href="style.css" />
+  <script>document.documentElement.dataset.theme = localStorage.getItem("theme") || "dark";</script>
 </head>
 <body>
   <!-- AUTH -->
@@ -16,7 +17,7 @@
         <button id="tab-signup">Регистрация</button>
       </div>
       <form id="auth-form">
-        <input id="auth-username" class="hidden" placeholder="Имя пользователя (латиница, 3-32)" pattern="[a-zA-Z0-9_]{3,32}" />
+        <input id="auth-username" class="hidden" placeholder="Ник / ID (a-z, 0-9, _ — 3-32)" autocomplete="off" />
         <input id="auth-email" type="email" placeholder="Email" required />
         <input id="auth-password" type="password" placeholder="Пароль (мин. 6 символов)" minlength="6" required />
         <button type="submit" id="auth-submit" class="primary">Войти</button>
@@ -29,61 +30,139 @@
   <section id="app" class="app hidden">
     <aside class="sidebar">
       <header class="side-head">
-        <div class="me">
+        <div class="me" id="btn-my-profile" title="Мой профиль">
           <div id="me-avatar" class="avatar"></div>
-          <div>
-            <div id="me-name" class="bold"></div>
+          <div class="ellipsis">
+            <div id="me-name" class="bold ellipsis"></div>
             <div id="me-username" class="muted small"></div>
           </div>
         </div>
         <div class="row">
-          <button id="btn-new-group" title="Новая группа">👥</button>
-          <button id="btn-logout" title="Выйти">⎋</button>
+          <button id="btn-theme" class="icon" title="Сменить тему">🌓</button>
+          <button id="btn-new-group" class="icon" title="Новая группа">👥</button>
+          <button id="btn-logout" class="icon" title="Выйти">⎋</button>
         </div>
       </header>
       <div class="search">
-        <input id="user-search" placeholder="Найти пользователя…" autocomplete="off" />
-        <ul id="search-results" class="list hidden"></ul>
+        <input id="user-search" placeholder="🔎 Найти пользователя или @id…" autocomplete="off" />
+        <ul id="search-results" class="list dropdown hidden"></ul>
       </div>
       <ul id="conv-list" class="list conv-list"></ul>
     </aside>
 
-    <main class="chat">
+    <main class="chat" id="chat">
       <div id="chat-empty" class="empty">Выберите чат или найдите пользователя слева</div>
       <div id="chat-view" class="chat-view hidden">
         <header class="chat-head">
-          <button id="btn-back" class="back">←</button>
-          <div id="chat-avatar" class="avatar"></div>
-          <div>
-            <div id="chat-title" class="bold"></div>
-            <div id="chat-sub" class="muted small"></div>
+          <button id="btn-back" class="icon back">←</button>
+          <div class="chat-head-info" id="chat-head-info" title="Информация">
+            <div id="chat-avatar" class="avatar"></div>
+            <div class="ellipsis">
+              <div id="chat-title" class="bold ellipsis"></div>
+              <div id="chat-sub" class="muted small"></div>
+            </div>
           </div>
+          <button id="btn-chat-search" class="icon" title="Поиск по чату">🔎</button>
+          <button id="btn-chat-info" class="icon" title="Информация">ℹ️</button>
         </header>
+        <div id="chat-search-bar" class="chat-search hidden">
+          <input id="chat-search-input" placeholder="Поиск сообщений…" autocomplete="off" />
+          <span id="chat-search-count" class="muted small"></span>
+        </div>
         <div id="messages" class="messages"></div>
         <div id="typing" class="typing muted small"></div>
+        <div id="reply-bar" class="reply-bar hidden">
+          <div class="ellipsis"><span class="bold small" id="reply-name"></span><div class="muted small ellipsis" id="reply-text"></div></div>
+          <button id="reply-cancel" class="icon">✕</button>
+        </div>
         <form id="composer" class="composer">
           <label class="attach" title="Прикрепить файл">📎<input id="file-input" type="file" hidden /></label>
-          <input id="msg-input" placeholder="Сообщение…" autocomplete="off" maxlength="4000" />
-          <button type="submit" class="primary">➤</button>
+          <textarea id="msg-input" rows="1" placeholder="Сообщение… (Enter — отправить, Shift+Enter — новая строка)" maxlength="4000"></textarea>
+          <button type="submit" class="primary send">➤</button>
         </form>
       </div>
+      <div id="drop-overlay" class="drop-overlay hidden">Отпустите файл, чтобы отправить</div>
     </main>
   </section>
 
-  <!-- GROUP MODAL -->
+  <!-- MY PROFILE -->
+  <div id="profile-modal" class="modal hidden">
+    <div class="card">
+      <h2>Мой профиль</h2>
+      <div class="avatar-edit">
+        <div id="pf-avatar" class="avatar xl"></div>
+        <div class="col">
+          <label class="btn">📷 Сменить фото<input id="pf-avatar-input" type="file" accept="image/*" hidden /></label>
+          <button id="pf-avatar-remove" class="small-btn">Убрать фото</button>
+        </div>
+      </div>
+      <label class="field">Имя<input id="pf-name" maxlength="64" /></label>
+      <label class="field">ID (ник)
+        <div class="prefix"><span>@</span><input id="pf-username" maxlength="32" autocomplete="off" /></div>
+        <span id="pf-username-hint" class="small muted">a-z, 0-9, _ — от 3 до 32 символов</span>
+      </label>
+      <label class="field">О себе<textarea id="pf-bio" rows="3" maxlength="300" placeholder="Пара слов о себе"></textarea></label>
+      <div class="muted small">Ваш внутренний ID: <code id="pf-uuid"></code> <button id="pf-copy-uuid" class="small-btn">копировать</button></div>
+      <p id="pf-msg" class="msg"></p>
+      <div class="row end">
+        <button data-close>Отмена</button>
+        <button id="pf-save" class="primary">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- USER PROFILE -->
+  <div id="user-modal" class="modal hidden">
+    <div class="card center">
+      <div id="up-avatar" class="avatar xl"></div>
+      <h2 id="up-name"></h2>
+      <div id="up-username" class="muted"></div>
+      <div id="up-status" class="muted small"></div>
+      <p id="up-bio" class="bio"></p>
+      <div class="row center-row">
+        <button id="up-message" class="primary">💬 Написать</button>
+        <button id="up-delete-chat" class="danger hidden">Удалить чат</button>
+        <button data-close>Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GROUP INFO -->
+  <div id="ginfo-modal" class="modal hidden">
+    <div class="card">
+      <h2>Группа</h2>
+      <label class="field">Название
+        <div class="row"><input id="gi-title" maxlength="64" /><button id="gi-rename">✓</button></div>
+      </label>
+      <div class="bold">Участники <span id="gi-count" class="muted"></span></div>
+      <ul id="gi-members" class="list scroll"></ul>
+      <input id="gi-add-search" placeholder="➕ Добавить участника…" autocomplete="off" />
+      <ul id="gi-add-results" class="list scroll"></ul>
+      <div class="row between">
+        <button id="gi-leave" class="danger">Покинуть группу</button>
+        <button data-close>Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- NEW GROUP -->
   <div id="group-modal" class="modal hidden">
     <div class="card">
       <h2>Новая группа</h2>
-      <input id="group-title" placeholder="Название группы" />
+      <input id="group-title" placeholder="Название группы" maxlength="64" />
       <input id="group-search" placeholder="Добавить участников…" autocomplete="off" />
-      <ul id="group-results" class="list"></ul>
+      <ul id="group-results" class="list scroll"></ul>
       <div id="group-selected" class="chips"></div>
       <div class="row end">
-        <button id="group-cancel">Отмена</button>
+        <button data-close>Отмена</button>
         <button id="group-create" class="primary">Создать</button>
       </div>
     </div>
   </div>
+
+  <!-- EMOJI PICKER -->
+  <div id="emoji-picker" class="emoji-picker hidden"></div>
+  <div id="toast" class="toast hidden"></div>
 
   <script type="module" src="app.js"></script>
 </body>
