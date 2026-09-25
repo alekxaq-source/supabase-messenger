@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Messenger</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- AUTH -->
+  <section id="auth" class="auth hidden">
+    <div class="card">
+      <h1>💬 Messenger</h1>
+      <div class="tabs">
+        <button id="tab-login" class="active">Вход</button>
+        <button id="tab-signup">Регистрация</button>
+      </div>
+      <form id="auth-form">
+        <input id="auth-username" class="hidden" placeholder="Имя пользователя (латиница, 3-32)" pattern="[a-zA-Z0-9_]{3,32}" />
+        <input id="auth-email" type="email" placeholder="Email" required />
+        <input id="auth-password" type="password" placeholder="Пароль (мин. 6 символов)" minlength="6" required />
+        <button type="submit" id="auth-submit" class="primary">Войти</button>
+      </form>
+      <p id="auth-msg" class="msg"></p>
+    </div>
+  </section>
+
+  <!-- APP -->
+  <section id="app" class="app hidden">
+    <aside class="sidebar">
+      <header class="side-head">
+        <div class="me">
+          <div id="me-avatar" class="avatar"></div>
+          <div>
+            <div id="me-name" class="bold"></div>
+            <div id="me-username" class="muted small"></div>
+          </div>
+        </div>
+        <div class="row">
+          <button id="btn-new-group" title="Новая группа">👥</button>
+          <button id="btn-logout" title="Выйти">⎋</button>
+        </div>
+      </header>
+      <div class="search">
+        <input id="user-search" placeholder="Найти пользователя…" autocomplete="off" />
+        <ul id="search-results" class="list hidden"></ul>
+      </div>
+      <ul id="conv-list" class="list conv-list"></ul>
+    </aside>
+
+    <main class="chat">
+      <div id="chat-empty" class="empty">Выберите чат или найдите пользователя слева</div>
+      <div id="chat-view" class="chat-view hidden">
+        <header class="chat-head">
+          <button id="btn-back" class="back">←</button>
+          <div id="chat-avatar" class="avatar"></div>
+          <div>
+            <div id="chat-title" class="bold"></div>
+            <div id="chat-sub" class="muted small"></div>
+          </div>
+        </header>
+        <div id="messages" class="messages"></div>
+        <div id="typing" class="typing muted small"></div>
+        <form id="composer" class="composer">
+          <label class="attach" title="Прикрепить файл">📎<input id="file-input" type="file" hidden /></label>
+          <input id="msg-input" placeholder="Сообщение…" autocomplete="off" maxlength="4000" />
+          <button type="submit" class="primary">➤</button>
+        </form>
+      </div>
+    </main>
+  </section>
+
+  <!-- GROUP MODAL -->
+  <div id="group-modal" class="modal hidden">
+    <div class="card">
+      <h2>Новая группа</h2>
+      <input id="group-title" placeholder="Название группы" />
+      <input id="group-search" placeholder="Добавить участников…" autocomplete="off" />
+      <ul id="group-results" class="list"></ul>
+      <div id="group-selected" class="chips"></div>
+      <div class="row end">
+        <button id="group-cancel">Отмена</button>
+        <button id="group-create" class="primary">Создать</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
