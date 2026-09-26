@@ -1,5 +1,10 @@
-const CACHE = "messenger-v3";
-const ASSETS = ["./", "./index.html", "./style.css", "./app.js", "./crypto.js", "./config.js", "./icon.svg"];
+const CACHE = "messenger-v4";
+const ASSETS = [
+  "./", "./index.html", "./style.css", "./extra.css", "./config.js",
+  "./state.js", "./e2e.js", "./crypto.js", "./convs.js", "./msgs.js", "./live.js", "./app.js",
+  "./manifest.webmanifest", "./icon.svg",
+];
+
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS).catch(() => {})).then(() => self.skipWaiting()));
 });
@@ -10,10 +15,8 @@ self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET" || new URL(req.url).origin !== location.origin) return;
   e.respondWith(
-    fetch(req).then((res) => {
-      const copy = res.clone();
-      caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
-      return res;
-    }).catch(() => caches.match(req).then((r) => r || caches.match("./index.html")))
+    fetch(req)
+      .then((res) => { caches.open(CACHE).then((c) => c.put(req, res.clone())); return res; })
+      .catch(() => caches.match(req).then((r) => r || caches.match("./index.html")))
   );
 });

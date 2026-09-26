@@ -1,0 +1,41 @@
+/* v3 additions */
+.grow{flex:1;min-width:0}
+.nowrap{white-space:nowrap}
+.pad{padding:14px}
+.row-top{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.chip{background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:3px 9px;font-size:.8rem;cursor:pointer}
+.chip-btn.on{border-color:var(--accent);color:var(--accent)}
+.icon.on{color:var(--accent)}
+.icon.sm{font-size:.92rem;padding:2px 4px}
+
+/* conversation / user rows */
+.conv{display:flex;gap:10px;align-items:center;padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--line)}
+.conv:hover,.conv.active{background:var(--panel2)}
+
+/* message bubbles */
+.msg{position:relative;align-self:flex-start;max-width:min(78%,640px);background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:7px 11px;overflow-wrap:anywhere}
+.msg.mine{align-self:flex-end;background:var(--mine)}
+.msg .text{white-space:pre-wrap}
+.msg a{color:var(--accent)}
+.msg code{background:var(--panel2);padding:1px 5px;border-radius:5px;font-family:ui-monospace,monospace;font-size:.88em}
+.msg .mention{color:var(--accent);font-weight:600}
+.msg .spoiler{background:var(--muted);color:transparent;border-radius:4px}
+.msg .spoiler:hover{background:transparent;color:inherit}
+.msg img.att{max-width:min(320px,60vw);border-radius:10px;display:block;margin:4px 0;cursor:zoom-in}
+.msg audio{max-width:250px;display:block;margin:4px 0}
+.msg .file{display:inline-block;margin:4px 0;color:var(--accent)}
+.msg .fwd{font-style:italic}
+.msg.flash{outline:2px solid var(--accent)}
+.tick.read{color:var(--accent);cursor:pointer}
+.reacts{display:flex;gap:4px;flex-wrap:wrap;margin:3px 0 2px}
+.react{background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:0 7px;font-size:.78rem;cursor:pointer}
+.react.own{border-color:var(--accent)}
+.acts{display:none;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:2px;position:absolute;top:-16px;right:4px;z-index:5;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+.msg:hover .acts{display:flex}
+@media(hover:none){.acts{display:flex;position:static;top:auto;right:auto;background:transparent;border:0;box-shadow:none;margin-top:4px;flex-wrap:wrap}}
+
+/* mobile: show chat over sidebar */
+@media(max-width:720px){
+  body.chat-open .sidebar{display:none}
+  body.chat-open .chat{display:flex}
+}
