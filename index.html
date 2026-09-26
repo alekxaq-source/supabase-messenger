@@ -1,169 +1,262 @@
 <!doctype html>
-<html lang="ru">
+<html lang="ru" data-theme="dark">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Messenger</title>
-  <link rel="stylesheet" href="style.css" />
-  <script>document.documentElement.dataset.theme = localStorage.getItem("theme") || "dark";</script>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Messenger</title>
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" href="icon.svg" />
+<meta name="theme-color" content="#0f1115" />
+<link rel="stylesheet" href="style.css" />
+<script>
+  const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t;
+  const fs = localStorage.getItem("fontSize"); if (fs) document.documentElement.style.fontSize = fs + "px";
+</script>
 </head>
 <body>
-  <!-- AUTH -->
-  <section id="auth" class="auth hidden">
-    <div class="card">
-      <h1>💬 Messenger</h1>
-      <div class="tabs">
-        <button id="tab-login" class="active">Вход</button>
-        <button id="tab-signup">Регистрация</button>
-      </div>
-      <form id="auth-form">
-        <input id="auth-username" class="hidden" placeholder="Ник / ID (a-z, 0-9, _ — 3-32)" autocomplete="off" />
-        <input id="auth-email" type="email" placeholder="Email" required />
-        <input id="auth-password" type="password" placeholder="Пароль (мин. 6 символов)" minlength="6" required />
-        <button type="submit" id="auth-submit" class="primary">Войти</button>
-      </form>
-      <p id="auth-msg" class="msg"></p>
-    </div>
-  </section>
 
-  <!-- APP -->
-  <section id="app" class="app hidden">
-    <aside class="sidebar">
-      <header class="side-head">
-        <div class="me" id="btn-my-profile" title="Мой профиль">
-          <div id="me-avatar" class="avatar"></div>
+<!-- ============ AUTH ============ -->
+<section id="auth" class="auth hidden">
+  <form id="auth-form" class="card">
+    <h1>💬 Messenger</h1>
+    <div class="tabs">
+      <button type="button" id="tab-login" class="active">Вход</button>
+      <button type="button" id="tab-signup">Регистрация</button>
+    </div>
+    <input id="auth-username" class="hidden" placeholder="@id (латиница, цифры, _)" autocomplete="username" />
+    <input id="auth-email" type="email" placeholder="Email" required autocomplete="email" />
+    <input id="auth-password" type="password" placeholder="Пароль (от 6 символов)" required minlength="6" autocomplete="current-password" />
+    <button id="auth-submit" class="primary" type="submit">Войти</button>
+    <button id="btn-forgot" type="button" class="link small">Забыли пароль?</button>
+    <div id="auth-msg" class="small"></div>
+  </form>
+</section>
+
+<!-- ============ APP ============ -->
+<div id="app" class="app hidden">
+  <aside class="sidebar">
+    <header class="side-head">
+      <div id="btn-my-profile" class="me">
+        <div id="me-avatar" class="avatar"></div>
+        <div class="ellipsis">
+          <div class="bold ellipsis"><span id="me-name"></span> <span id="me-emoji"></span></div>
+          <div id="me-username" class="muted small ellipsis"></div>
+        </div>
+      </div>
+      <div class="row">
+        <button id="btn-theme" class="icon" title="Тема">🌓</button>
+        <button id="btn-settings" class="icon" title="Настройки">⚙️</button>
+        <button id="btn-logout" class="icon" title="Выйти">🚪</button>
+      </div>
+    </header>
+
+    <div class="search">
+      <input id="user-search" placeholder="Найти человека по имени или @id" />
+      <ul id="search-results" class="dropdown hidden"></ul>
+    </div>
+
+    <div class="side-actions">
+      <button id="btn-new-group" class="chip-btn">👥 Группа</button>
+      <button id="btn-saved" class="chip-btn">⭐ Избранное</button>
+      <button id="btn-global-search" class="chip-btn">🔎 Поиск</button>
+      <button id="btn-archive" class="chip-btn">🗄️ Архив</button>
+    </div>
+
+    <ul id="conv-list" class="conv-list"></ul>
+    <div id="conn-status" class="conn hidden">Нет соединения…</div>
+  </aside>
+
+  <main id="chat" class="chat">
+    <div id="chat-empty" class="empty big">Выберите чат или найдите человека 👈</div>
+
+    <div id="chat-view" class="chat-view hidden">
+      <header class="chat-head">
+        <button id="btn-back" class="icon only-mobile">←</button>
+        <div id="chat-head-info" class="head-info">
+          <div id="chat-avatar" class="avatar"></div>
           <div class="ellipsis">
-            <div id="me-name" class="bold ellipsis"></div>
-            <div id="me-username" class="muted small"></div>
+            <div class="bold ellipsis"><span id="chat-title"></span> <span id="lock-badge" class="tag hidden">🔒 E2E</span></div>
+            <div id="chat-sub" class="muted small ellipsis"></div>
           </div>
         </div>
         <div class="row">
-          <button id="btn-theme" class="icon" title="Сменить тему">🌓</button>
-          <button id="btn-new-group" class="icon" title="Новая группа">👥</button>
-          <button id="btn-logout" class="icon" title="Выйти">⎋</button>
+          <button id="btn-chat-search" class="icon" title="Поиск в чате">🔍</button>
+          <button id="btn-chat-info" class="icon" title="Инфо">ℹ️</button>
+          <button id="btn-chat-menu" class="icon" title="Ещё">⋮</button>
         </div>
       </header>
-      <div class="search">
-        <input id="user-search" placeholder="🔎 Найти пользователя или @id…" autocomplete="off" />
-        <ul id="search-results" class="list dropdown hidden"></ul>
-      </div>
-      <ul id="conv-list" class="list conv-list"></ul>
-    </aside>
 
-    <main class="chat" id="chat">
-      <div id="chat-empty" class="empty">Выберите чат или найдите пользователя слева</div>
-      <div id="chat-view" class="chat-view hidden">
-        <header class="chat-head">
-          <button id="btn-back" class="icon back">←</button>
-          <div class="chat-head-info" id="chat-head-info" title="Информация">
-            <div id="chat-avatar" class="avatar"></div>
-            <div class="ellipsis">
-              <div id="chat-title" class="bold ellipsis"></div>
-              <div id="chat-sub" class="muted small"></div>
-            </div>
-          </div>
-          <button id="btn-chat-search" class="icon" title="Поиск по чату">🔎</button>
-          <button id="btn-chat-info" class="icon" title="Информация">ℹ️</button>
-        </header>
-        <div id="chat-search-bar" class="chat-search hidden">
-          <input id="chat-search-input" placeholder="Поиск сообщений…" autocomplete="off" />
-          <span id="chat-search-count" class="muted small"></span>
-        </div>
-        <div id="messages" class="messages"></div>
-        <div id="typing" class="typing muted small"></div>
-        <div id="reply-bar" class="reply-bar hidden">
-          <div class="ellipsis"><span class="bold small" id="reply-name"></span><div class="muted small ellipsis" id="reply-text"></div></div>
-          <button id="reply-cancel" class="icon">✕</button>
-        </div>
-        <form id="composer" class="composer">
-          <label class="attach" title="Прикрепить файл">📎<input id="file-input" type="file" hidden /></label>
-          <textarea id="msg-input" rows="1" placeholder="Сообщение… (Enter — отправить, Shift+Enter — новая строка)" maxlength="4000"></textarea>
-          <button type="submit" class="primary send">➤</button>
-        </form>
+      <div id="chat-menu" class="menu hidden">
+        <button data-m="lock">🔒 Шифрование</button>
+        <button data-m="mute">🔔 Уведомления</button>
+        <button data-m="pin">📌 Закрепить чат</button>
+        <button data-m="archive">🗄️ В архив</button>
+        <button data-m="wallpaper">🎨 Обои чата</button>
+        <button data-m="export">⬇️ Скачать историю</button>
+        <button data-m="clear" class="danger">🧹 Очистить историю</button>
       </div>
-      <div id="drop-overlay" class="drop-overlay hidden">Отпустите файл, чтобы отправить</div>
-    </main>
-  </section>
 
-  <!-- MY PROFILE -->
-  <div id="profile-modal" class="modal hidden">
-    <div class="card">
-      <h2>Мой профиль</h2>
-      <div class="avatar-edit">
-        <div id="pf-avatar" class="avatar xl"></div>
-        <div class="col">
-          <label class="btn">📷 Сменить фото<input id="pf-avatar-input" type="file" accept="image/*" hidden /></label>
-          <button id="pf-avatar-remove" class="small-btn">Убрать фото</button>
-        </div>
+      <div id="pinned-bar" class="pinned hidden">
+        <span>📌</span><span id="pinned-text" class="ellipsis"></span>
+        <button id="pinned-unpin" class="icon" title="Открепить">✕</button>
       </div>
-      <label class="field">Имя<input id="pf-name" maxlength="64" /></label>
-      <label class="field">ID (ник)
-        <div class="prefix"><span>@</span><input id="pf-username" maxlength="32" autocomplete="off" /></div>
-        <span id="pf-username-hint" class="small muted">a-z, 0-9, _ — от 3 до 32 символов</span>
-      </label>
-      <label class="field">О себе<textarea id="pf-bio" rows="3" maxlength="300" placeholder="Пара слов о себе"></textarea></label>
-      <div class="muted small">Ваш внутренний ID: <code id="pf-uuid"></code> <button id="pf-copy-uuid" class="small-btn">копировать</button></div>
-      <p id="pf-msg" class="msg"></p>
-      <div class="row end">
-        <button data-close>Отмена</button>
-        <button id="pf-save" class="primary">Сохранить</button>
+
+      <div id="chat-search-bar" class="searchbar hidden">
+        <input id="chat-search-input" placeholder="Поиск в этом чате…" />
+        <span id="chat-search-count" class="muted small"></span>
+        <button id="chat-search-prev" class="icon">↑</button>
+        <button id="chat-search-next" class="icon">↓</button>
       </div>
+
+      <div id="messages" class="messages"></div>
+      <button id="btn-scroll-down" class="scroll-down hidden">↓<span id="new-count" class="badge hidden"></span></button>
+      <div id="typing" class="typing"></div>
+
+      <div id="reply-bar" class="reply-bar hidden">
+        <div class="ellipsis"><div id="reply-name" class="bold small"></div><div id="reply-text" class="muted small ellipsis"></div></div>
+        <button id="reply-cancel" class="icon">✕</button>
+      </div>
+
+      <form id="composer" class="composer">
+        <label class="icon" for="file-input" title="Файл">📎</label>
+        <input id="file-input" type="file" class="hidden" />
+        <button id="btn-voice" type="button" class="icon" title="Голосовое сообщение">🎤</button>
+        <button id="btn-timer" type="button" class="icon" title="Самоудаление">⏱️</button>
+        <textarea id="msg-input" rows="1" placeholder="Сообщение… (Enter — отправить)"></textarea>
+        <button class="send" type="submit" title="Отправить">➤</button>
+      </form>
+      <div id="rec-bar" class="rec hidden">🔴 Запись <span id="rec-time">0:00</span>
+        <button id="rec-stop" class="primary small">Отправить</button>
+        <button id="rec-cancel" class="small">Отмена</button>
+      </div>
+      <div id="drop-overlay" class="drop hidden">Отпустите файл для отправки</div>
+    </div>
+  </main>
+</div>
+
+<!-- ============ MODALS ============ -->
+<div id="profile-modal" class="modal hidden"><div class="sheet">
+  <h3>Мой профиль <button class="icon" data-close>✕</button></h3>
+  <div class="prof-top">
+    <div id="pf-avatar" class="avatar xl"></div>
+    <div class="col">
+      <label class="chip-btn" for="pf-avatar-input">Загрузить фото</label>
+      <input id="pf-avatar-input" type="file" accept="image/*" class="hidden" />
+      <button id="pf-avatar-remove" class="chip-btn">Удалить фото</button>
     </div>
   </div>
+  <label class="lbl">Имя</label>
+  <input id="pf-name" placeholder="Имя" />
+  <label class="lbl">@id</label>
+  <input id="pf-username" placeholder="username" />
+  <div id="pf-username-hint" class="small muted"></div>
+  <label class="lbl">Статус-эмодзи</label>
+  <div id="pf-emoji-row" class="row wrap"></div>
+  <label class="lbl">О себе</label>
+  <textarea id="pf-bio" rows="2" placeholder="Несколько слов о себе"></textarea>
+  <div class="row between">
+    <span class="small muted">ID: <span id="pf-uuid" class="mono"></span></span>
+    <button id="pf-copy-uuid" class="chip-btn small">Копировать</button>
+  </div>
+  <div class="row">
+    <button id="pf-share" class="chip-btn">🔗 Ссылка-приглашение</button>
+    <button id="pf-qr" class="chip-btn">▣ QR-код</button>
+  </div>
+  <div class="row between">
+    <button id="pf-save" class="primary">Сохранить</button>
+    <span id="pf-msg" class="small muted"></span>
+  </div>
+</div></div>
 
-  <!-- USER PROFILE -->
-  <div id="user-modal" class="modal hidden">
-    <div class="card center">
-      <div id="up-avatar" class="avatar xl"></div>
-      <h2 id="up-name"></h2>
-      <div id="up-username" class="muted"></div>
+<div id="user-modal" class="modal hidden"><div class="sheet">
+  <h3>Профиль <button class="icon" data-close>✕</button></h3>
+  <div class="prof-top">
+    <div id="up-avatar" class="avatar xl"></div>
+    <div class="col ellipsis">
+      <div class="bold"><span id="up-name"></span> <span id="up-emoji"></span></div>
+      <div id="up-username" class="muted small"></div>
       <div id="up-status" class="muted small"></div>
-      <p id="up-bio" class="bio"></p>
-      <div class="row center-row">
-        <button id="up-message" class="primary">💬 Написать</button>
-        <button id="up-delete-chat" class="danger hidden">Удалить чат</button>
-        <button data-close>Закрыть</button>
-      </div>
     </div>
   </div>
-
-  <!-- GROUP INFO -->
-  <div id="ginfo-modal" class="modal hidden">
-    <div class="card">
-      <h2>Группа</h2>
-      <label class="field">Название
-        <div class="row"><input id="gi-title" maxlength="64" /><button id="gi-rename">✓</button></div>
-      </label>
-      <div class="bold">Участники <span id="gi-count" class="muted"></span></div>
-      <ul id="gi-members" class="list scroll"></ul>
-      <input id="gi-add-search" placeholder="➕ Добавить участника…" autocomplete="off" />
-      <ul id="gi-add-results" class="list scroll"></ul>
-      <div class="row between">
-        <button id="gi-leave" class="danger">Покинуть группу</button>
-        <button data-close>Закрыть</button>
-      </div>
-    </div>
+  <div id="up-bio" class="bio"></div>
+  <div id="up-fp" class="small muted mono"></div>
+  <div class="row wrap">
+    <button id="up-message" class="primary">Написать</button>
+    <button id="up-block" class="chip-btn">🚫 Блокировать</button>
+    <button id="up-delete-chat" class="chip-btn danger hidden">Удалить чат</button>
   </div>
+</div></div>
 
-  <!-- NEW GROUP -->
-  <div id="group-modal" class="modal hidden">
-    <div class="card">
-      <h2>Новая группа</h2>
-      <input id="group-title" placeholder="Название группы" maxlength="64" />
-      <input id="group-search" placeholder="Добавить участников…" autocomplete="off" />
-      <ul id="group-results" class="list scroll"></ul>
-      <div id="group-selected" class="chips"></div>
-      <div class="row end">
-        <button data-close>Отмена</button>
-        <button id="group-create" class="primary">Создать</button>
-      </div>
-    </div>
+<div id="group-modal" class="modal hidden"><div class="sheet">
+  <h3>Новая группа <button class="icon" data-close>✕</button></h3>
+  <input id="group-title" placeholder="Название группы" />
+  <div id="group-selected" class="row wrap"></div>
+  <input id="group-search" placeholder="Найти участников…" />
+  <ul id="group-results" class="list"></ul>
+  <button id="group-create" class="primary">Создать</button>
+</div></div>
+
+<div id="ginfo-modal" class="modal hidden"><div class="sheet">
+  <h3>Группа <button class="icon" data-close>✕</button></h3>
+  <div class="row">
+    <input id="gi-title" placeholder="Название" />
+    <button id="gi-rename" class="chip-btn">Переименовать</button>
   </div>
+  <div class="lbl">Участники <span id="gi-count" class="muted"></span></div>
+  <ul id="gi-members" class="list"></ul>
+  <input id="gi-add-search" placeholder="Добавить участника…" />
+  <ul id="gi-add-results" class="list"></ul>
+  <button id="gi-leave" class="chip-btn danger">Покинуть группу</button>
+</div></div>
 
-  <!-- EMOJI PICKER -->
-  <div id="emoji-picker" class="emoji-picker hidden"></div>
-  <div id="toast" class="toast hidden"></div>
+<div id="settings-modal" class="modal hidden"><div class="sheet">
+  <h3>Настройки <button class="icon" data-close>✕</button></h3>
+  <label class="lbl">Размер шрифта</label>
+  <input id="set-font" type="range" min="13" max="20" step="1" />
+  <label class="row between"><span>Звук уведомлений</span><input id="set-sound" type="checkbox" /></label>
+  <label class="row between"><span>Уведомления в браузере</span><input id="set-notify" type="checkbox" /></label>
+  <label class="row between"><span>Показывать “печатает…”</span><input id="set-typing" type="checkbox" /></label>
+  <label class="row between"><span>Enter отправляет сообщение</span><input id="set-enter" type="checkbox" /></label>
+  <div class="lbl">Шифрование</div>
+  <div id="set-fp" class="small muted mono"></div>
+  <div class="row wrap">
+    <button id="set-key-export" class="chip-btn">⬇️ Сохранить ключ</button>
+    <label class="chip-btn" for="set-key-import">⬆️ Загрузить ключ</label>
+    <input id="set-key-import" type="file" accept=".json,.txt" class="hidden" />
+    <button id="set-key-new" class="chip-btn danger">Новый ключ</button>
+  </div>
+  <div class="lbl">Безопасность</div>
+  <div class="row wrap">
+    <button id="set-password" class="chip-btn">Сменить пароль</button>
+    <button id="set-blocked" class="chip-btn">🚫 Заблокированные</button>
+    <button id="set-install" class="chip-btn hidden">⬇️ Установить приложение</button>
+  </div>
+  <ul id="blocked-list" class="list hidden"></ul>
+</div></div>
 
-  <script type="module" src="app.js"></script>
+<div id="list-modal" class="modal hidden"><div class="sheet">
+  <h3 id="list-title">Список <button class="icon" data-close>✕</button></h3>
+  <input id="list-input" class="hidden" placeholder="Искать…" />
+  <ul id="list-body" class="list"></ul>
+</div></div>
+
+<div id="prompt-modal" class="modal hidden"><div class="sheet">
+  <h3 id="prompt-title">Ввод <button class="icon" data-close>✕</button></h3>
+  <div id="prompt-text" class="small muted"></div>
+  <input id="prompt-input" />
+  <div class="row"><button id="prompt-ok" class="primary">OK</button><button class="chip-btn" data-close>Отмена</button></div>
+</div></div>
+
+<div id="lightbox" class="lightbox hidden">
+  <button class="icon lb-close" data-close>✕</button>
+  <button class="icon lb-prev">‹</button>
+  <img id="lb-img" alt="" />
+  <button class="icon lb-next">›</button>
+  <a id="lb-download" class="chip-btn lb-dl" download target="_blank">⬇️ Скачать</a>
+</div>
+
+<div id="emoji-picker" class="emoji-picker hidden"></div>
+<div id="toast" class="toast hidden"></div>
+<script type="module" src="app.js"></script>
 </body>
 </html>
