@@ -1,70 +1,39 @@
-# Messenger (Supabase)
+# Messenger (Supabase + vanilla JS)
 
-A real-time messenger built with plain HTML, CSS and JS and backed by Supabase.
+Рабочий мессенджер без сборки и без сервера: статические файлы + Supabase (Postgres, Auth, Realtime, Storage).
 
-## Features
+**Ссылка:** https://raw.githack.com/alekxaq-source/supabase-messenger/main/index.html
 
-**Profile**
-- Change your avatar (upload or remove a photo)
-- Change your display name and your **ID (@username)**; availability is checked live as you type
-- Add an "About" bio
-- Copy your internal account ID
-- View other people's profiles: avatar, bio, online status and "last seen"
+## Возможности
 
-**Chats**
-- Direct chats (1:1) and group chats
-- Group settings: rename the group, add members, leave the group
-- Delete a direct chat from your own list
-- Search users by name or @id
-- Unread counters, including a counter in the browser tab title
+База: регистрация и вход по email, личные чаты, группы, файлы и картинки, ответы, реакции, профили, @id, поиск людей, онлайн-статус, темная/светлая тема, PWA.
 
-**Messages**
-- Real-time delivery
-- Replies (quote a message and jump to the original)
-- Emoji reactions: 👍 ❤️ 😂 😮 😢 🔥 👎 🎉
-- Read receipts: ✓ sent, ✓✓ read
-- Edit your messages (or press ↑ in an empty input to edit the last one), delete them, copy text
-- Files and images: attach button, drag and drop, or paste with Ctrl+V
-- Links are clickable
-- Search messages inside a chat, with highlighting
-- Multi-line messages: Enter sends, Shift+Enter adds a new line
+Шифрование (v3):
+- Личные чаты — сквозное шифрование (ECDH P-256 → AES-GCM 256). Приватный ключ хранится только в браузере.
+- Группы — шифрование по общему паролю (PBKDF2, 200k итераций).
+- Отпечатки ключей для сверки, экспорт/импорт/сброс ключа.
+- Вложения хранятся в Storage без шифрования.
 
-**Other**
-- Online status and "typing…" indicator
-- Browser notifications
-- Light and dark themes
-- Mobile layout (tap a message to show its actions)
+Ещё в v3: голосовые сообщения, самоудаляющиеся сообщения, пересылка, избранное, закреплённые сообщения, архив, заметки-черновики, поиск в чате и по всем чатам, обои чата, экспорт истории, очистка чата, блокировка, уведомления и звук, «печатает…», галерея изображений, drag&drop и вставка из буфера, markdown-разметка и спойлеры, статус-эмодзи, QR и ссылка-приглашение, горячие клавиши, размер шрифта, смена пароля.
 
-## Run locally
+## Файлы
 
-Serve the folder with any static server:
+| Файл | Назначение |
+|---|---|
+| `index.html`, `style.css`, `extra.css` | разметка и стили |
+| `config.js` | URL и publishable-ключ Supabase |
+| `state.js` | общее состояние, форматирование, UI-хелперы |
+| `crypto.js`, `e2e.js` | шифрование |
+| `convs.js` | список чатов, группы, профили, настройки чата |
+| `msgs.js` | сообщения, действия, отправка |
+| `live.js` | realtime, голос, галерея, глобальный поиск |
+| `app.js` | вход, профиль, настройки, запуск |
+| `sw.js`, `manifest.webmanifest`, `icon.svg` | PWA |
 
-```bash
-python3 -m http.server 8080
-```
+## База данных
 
-Then open **http://localhost:8080**. Don't use 0.0.0.0: Chrome blocks it.
+Таблицы: `profiles`, `conversations`, `conversation_members`, `messages`, `message_reactions`, `conv_settings`, `blocks`, `saved_messages`, `pinned_messages`. Всё закрыто RLS; доступ — только участникам чата. RPC: `get_or_create_dm`, `create_group`, `add_group_members`, `username_available`, `clear_chat`, `purge_expired`.
 
-## Backend
+## Запуск у себя
 
-Supabase project `messenger` (ref `ubyfjnwplxavuirzejad`).
-
-**Tables**
-- `profiles`
-- `conversations`
-- `conversation_members`
-- `messages`
-- `message_reactions`
-
-**Storage buckets**
-- `attachments`
-- `avatars`
-
-**Access control**
-- RLS is enabled on every table.
-
-**RPC functions**
-- `get_or_create_dm`
-- `create_group`
-- `add_group_members`
-- `username_available`
+Любой статический сервер, например: `python3 -m http.server 8000`, затем открыть http://localhost:8000
