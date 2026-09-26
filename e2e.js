@@ -25,8 +25,11 @@ export function newIdentity() {
   state.keys.clear();
   return ensureIdentity();
 }
-export function importIdentity(privJwk) {
-  C.savePriv(state.me.id, privJwk);
+export function importIdentity(priv) {
+  const jwk = typeof priv === "string" ? priv.trim() : JSON.stringify(priv);
+  JSON.parse(jwk);
+  C.savePriv(state.me.id, jwk);
+  state.priv = null;
   state.keys.clear();
   return ensureIdentity();
 }
