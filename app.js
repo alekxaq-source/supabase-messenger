@@ -2,12 +2,16 @@ import {
   sb, $, hooks, state, prefs, savePrefs, STATUS_EMOJIS, USERNAME_RE, esc, nameOf, setAvatar,
   cacheProfile, profileById, toast, openModal, closeModal, closeAllModals, download, showList, ask,
 } from "./state.js";
-import { ensureIdentity, newIdentity, importIdentity, fingerprint } from "./e2e.js";
-import { loadSideData, loadConversations, renderConvList, bindConvUi, searchUsers, startDm, showUser, toggleBlock } from "./convs.js";
-import { bindMsgUi, openConversation, jumpToMessage } from "./msgs.js";
-import { subscribeAll, startPresence, bindLive, askNotifyPermission } from "./live.js";
 
 hooks.ask = ask;
+
+// chat modules are loaded only after login, so a problem in them can never break login/registration
+let E2E = {}, CONVS = {}, MSGS = {}, LIVE = {};
+async function loadModules() {
+  [E2E, CONVS, MSGS, LIVE] = await Promise.all([
+    import("./e2e.js"), import("./convs.js"), import("./msgs.js"), import("./live.js"),
+  ]);
+}
 
 const PROFILE_COLS = "id,username,display_name,avatar_url,bio,last_seen_at,public_key,status_emoji";
 const show = (id) => $(id).classList.remove("hidden");
@@ -24,6 +28,23 @@ function setFont(px) {
   savePrefs();
 }
 
+/* ---------------- errors ---------------- */
+function ruError(m = "") {
+  m = String(m || "");
+  if (/invalid login credentials/i.test(m)) return "Неверный email или пароль";
+  if (/email not confirmed/i.test(m)) return "Email не подтверждён. Нажмите «Забыли пароль?» — придёт письмо со ссылкой";
+  if (/rate limit|too many|security purposes|over_email_send_rate/i.test(m)) return "Слишком много попыток. Подождите пару минут и попробуйте снова";
+  if (/already registered|already exists/i.test(m)) return "Этот email уже зарегистрирован — войдите";
+  if (/failed to fetch|networkerror|load failed|network request failed|timeout/i.test(m)) return "Нет связи с сервером. Проверьте интернет (или включите VPN) и попробуйте снова";
+  if (/sending.*email|smtp|email address .* invalid|not authorized/i.test(m)) return "Сервер не смог отправить письмо на этот адрес. Попробуйте позже";
+  if (/should be different|same password/i.test(m)) return "Новый пароль должен отличаться от старого";
+  if (/password/i.test(m)) return "Пароль слишком короткий или простой";
+  return m || "Что-то пошло не так, попробуйте ещё раз";
+}
+function withTimeout(p, ms = 20000) {
+  return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), ms))]);
+}
+
 /* ---------------- auth ---------------- */
 let mode = "login";
 function setMode(m) {
@@ -31,41 +52,78 @@ function setMode(m) {
   $("tab-login").classList.toggle("active", m === "login");
   $("tab-signup").classList.toggle("active", m === "signup");
   $("auth-username").classList.toggle("hidden", m !== "signup");
+  $("auth-password").autocomplete = m === "signup" ? "new-password" : "current-password";
   $("auth-submit").textContent = m === "login" ? "Войти" : "Создать аккаунт";
   $("auth-msg").textContent = "";
 }
 
+async function signUp(email, password, username) {
+  const { data, error } = await withTimeout(sb.functions.invoke("auth-helper", { body: { email, password, username } }));
+  if (error) {
+    let m = error.message;
+    try { const j = await error.context.json(); m = j.error || m; } catch (_) {}
+    throw new Error(m);
+  }
+  if (data?.error) throw new Error(data.error);
+}
+
 async function onAuthSubmit(e) {
   e.preventDefault();
-  const email = $("auth-email").value.trim();
+  const email = $("auth-email").value.trim().toLowerCase();
   const password = $("auth-password").value;
   const msg = $("auth-msg");
   msg.textContent = "Подождите…";
   $("auth-submit").disabled = true;
   try {
     if (mode === "signup") {
-      const username = $("auth-username").value.trim().toLowerCase();
+      const username = $("auth-username").value.trim().toLowerCase().replace(/^@/, "");
       if (!USERNAME_RE.test(username)) { msg.textContent = "@id: 3–32 символа, только латиница, цифры и _"; return; }
-      const { data: free } = await sb.rpc("username_available", { name: username });
-      if (free === false) { msg.textContent = "Такой @id уже занят"; return; }
-      const { data, error } = await sb.auth.signUp({ email, password, options: { data: { username, display_name: username } } });
-      if (error) { msg.textContent = error.message; return; }
-      if (!data.session) { msg.textContent = "Аккаунт создан. Подтвердите email и войдите."; setMode("login"); return; }
-    } else {
-      const { error } = await sb.auth.signInWithPassword({ email, password });
-      if (error) { msg.textContent = "Неверный email или пароль"; return; }
+      if (password.length < 6) { msg.textContent = "Пароль — минимум 6 символов"; return; }
+      await signUp(email, password, username);
+      msg.textContent = "Аккаунт создан, входим…";
     }
+    const { error } = await withTimeout(sb.auth.signInWithPassword({ email, password }));
+    if (error) { msg.textContent = ruError(error.message); return; }
     msg.textContent = "";
+  } catch (err) {
+    msg.textContent = ruError(err?.message);
   } finally {
     $("auth-submit").disabled = false;
   }
 }
 
 async function forgot() {
-  const email = $("auth-email").value.trim();
-  if (!email) { $("auth-msg").textContent = "Введите email выше"; return; }
-  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
-  $("auth-msg").textContent = error ? error.message : "Письмо для сброса пароля отправлено";
+  const email = $("auth-email").value.trim().toLowerCase();
+  const msg = $("auth-msg");
+  if (!email) { msg.textContent = "Сначала введите email в поле выше"; return; }
+  msg.textContent = "Отправляем письмо…";
+  try {
+    const { error } = await withTimeout(sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname }));
+    msg.textContent = error ? ruError(error.message)
+      : "Письмо отправлено. Проверьте «Входящие» и «Спам» и откройте ссылку в этом же браузере.";
+  } catch (err) {
+    msg.textContent = ruError(err?.message);
+  }
+}
+
+let recoveryDone = false;
+async function doRecovery(session) {
+  if (recoveryDone) return;
+  recoveryDone = true;
+  history.replaceState(null, "", location.pathname);
+  show("auth");
+  $("auth-msg").textContent = "Придумайте новый пароль";
+  for (;;) {
+    const p = await ask("Новый пароль", "Минимум 6 символов", { password: true });
+    if (p === null) break;
+    if (p.length < 6) { toast("Минимум 6 символов"); continue; }
+    const { error } = await sb.auth.updateUser({ password: p });
+    if (error) { toast(ruError(error.message)); continue; }
+    toast("Пароль изменён ✓");
+    break;
+  }
+  $("auth-msg").textContent = "";
+  await boot(session);
 }
 
 /* ---------------- me / profile ---------------- */
@@ -113,7 +171,7 @@ async function saveProfile() {
   if (error) { $("pf-msg").textContent = "Не сохранилось (возможно, @id занят)"; return; }
   Object.assign(me, { display_name, username, bio });
   renderMe();
-  renderConvList();
+  CONVS.renderConvList?.();
   $("pf-msg").textContent = "Сохранено ✓";
   toast("Профиль обновлён");
 }
@@ -130,7 +188,7 @@ async function uploadAvatar(file) {
   state.me.avatar_url = url;
   setAvatar($("pf-avatar"), nameOf(state.me), state.me.id, url);
   renderMe();
-  renderConvList();
+  CONVS.renderConvList?.();
   toast("Фото обновлено");
 }
 
@@ -165,7 +223,7 @@ async function showBlocked() {
     const b = document.createElement("button");
     b.className = "chip-btn small";
     b.textContent = "Разблокировать";
-    b.onclick = async () => { await toggleBlock(p.id); showBlocked(); };
+    b.onclick = async () => { await CONVS.toggleBlock(p.id); showBlocked(); };
     li.appendChild(b);
     ul.appendChild(li);
   }
@@ -177,7 +235,7 @@ function bindSettings() {
   $("set-sound").onchange = (e) => { prefs.sound = e.target.checked; savePrefs(); };
   $("set-typing").onchange = (e) => { prefs.typing = e.target.checked; savePrefs(); };
   $("set-enter").onchange = (e) => { prefs.enter = e.target.checked; savePrefs(); };
-  $("set-notify").onchange = (e) => { prefs.notify = e.target.checked; savePrefs(); if (e.target.checked) askNotifyPermission(); };
+  $("set-notify").onchange = (e) => { prefs.notify = e.target.checked; savePrefs(); if (e.target.checked) LIVE.askNotifyPermission?.(); };
   $("set-blocked").onclick = showBlocked;
   $("set-key-export").onclick = () => {
     const priv = localStorage.getItem("e2e_priv_" + state.me.id);
@@ -191,23 +249,23 @@ function bindSettings() {
     if (!f) return;
     try {
       const txt = await f.text();
-      await importIdentity(JSON.parse(txt));
+      await E2E.importIdentity(JSON.parse(txt));
       toast("Ключ загружен");
-      if (state.activeId) openConversation(state.activeId);
+      if (state.activeId) MSGS.openConversation(state.activeId);
     } catch (_) { toast("Файл ключа не подходит"); }
   };
   $("set-key-new").onclick = async () => {
     if (!confirm("Создать новый ключ? Старые зашифрованные сообщения станут нечитаемыми.")) return;
-    await newIdentity();
+    await E2E.newIdentity();
     toast("Новый ключ создан");
-    if (state.activeId) openConversation(state.activeId);
+    if (state.activeId) MSGS.openConversation(state.activeId);
   };
   $("set-password").onclick = async () => {
     const p1 = await ask("Новый пароль", "Минимум 6 символов", { password: true });
     if (!p1) return;
     if (p1.length < 6) { toast("Слишком короткий пароль"); return; }
     const { error } = await sb.auth.updateUser({ password: p1 });
-    toast(error ? "Не удалось сменить пароль" : "Пароль изменён");
+    toast(error ? ruError(error.message) : "Пароль изменён");
   };
 }
 
@@ -231,7 +289,7 @@ function bindInstall() {
 /* ---------------- deep links ---------------- */
 async function handleHash() {
   const h = location.hash.slice(1);
-  if (!h) return;
+  if (!h || /access_token|error_description|type=/.test(h)) return;
   const p = new URLSearchParams(h);
   const uname = p.get("u");
   if (uname) {
@@ -240,19 +298,20 @@ async function handleHash() {
     if (!data) { toast("Пользователь @" + uname + " не найден"); return; }
     if (data.id === state.me.id) return;
     cacheProfile(data);
-    showUser(data.id);
+    CONVS.showUser(data.id);
     return;
   }
   const conv = p.get("c");
   if (conv) {
-    await openConversation(conv);
+    await MSGS.openConversation(conv);
     const m = p.get("m");
-    if (m) setTimeout(() => jumpToMessage(m), 500);
+    if (m) setTimeout(() => MSGS.jumpToMessage(m), 500);
   }
 }
 
 /* ---------------- boot ---------------- */
 async function start(session) {
+  await loadModules();
   const uid = session.user.id;
   let { data: me } = await sb.from("profiles").select(PROFILE_COLS).eq("id", uid).maybeSingle();
   if (!me) {
@@ -269,20 +328,34 @@ async function start(session) {
   document.querySelector(".lb-prev")?.setAttribute("id", "lb-prev");
   document.querySelector(".lb-next")?.setAttribute("id", "lb-next");
 
-  bindConvUi();
-  bindMsgUi();
-  bindLive();
+  CONVS.bindConvUi();
+  MSGS.bindMsgUi();
+  LIVE.bindLive();
   bindSettings();
   bindInstall();
 
-  await ensureIdentity().catch(() => {});
-  await loadSideData();
-  await loadConversations();
-  subscribeAll();
-  startPresence();
-  if (prefs.notify) askNotifyPermission();
+  await E2E.ensureIdentity().catch(() => {});
+  await CONVS.loadSideData();
+  await CONVS.loadConversations();
+  LIVE.subscribeAll();
+  LIVE.startPresence();
+  if (prefs.notify) LIVE.askNotifyPermission();
   handleHash();
   window.addEventListener("hashchange", handleHash);
+}
+
+let started = false;
+async function boot(session) {
+  if (started || !session) return;
+  started = true;
+  try {
+    await start(session);
+  } catch (e) {
+    console.error(e);
+    hide("app");
+    show("auth");
+    $("auth-msg").textContent = "Вход выполнен, но чаты не загрузились. Обновите страницу (Ctrl+Shift+R).";
+  }
 }
 
 function bindStatic() {
@@ -301,7 +374,7 @@ function bindStatic() {
     state.me.avatar_url = null;
     setAvatar($("pf-avatar"), nameOf(state.me), state.me.id, null);
     renderMe();
-    renderConvList();
+    CONVS.renderConvList?.();
   };
   $("pf-copy-uuid").onclick = () => { navigator.clipboard?.writeText(state.me.id); toast("ID скопирован"); };
   $("pf-share").onclick = async () => {
@@ -335,18 +408,37 @@ function bindStatic() {
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape") { closeAllModals(); $("chat-menu")?.classList.add("hidden"); $("emoji-picker")?.classList.add("hidden"); }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); $("user-search")?.focus(); }
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f" && state.activeId) { e.preventDefault(); $("btn-chat-search").click(); }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f" && state.activeId) { e.preventDefault(); $("btn-chat-search")?.click(); }
   });
 }
+
+/* ---------------- main ---------------- */
+const initialHash = window.__initialHash || location.hash || "";
+const recovering = /type=recovery/.test(initialHash);
+const linkError = /error_description|error_code/.test(initialHash);
 
 bindStatic();
 setMode("login");
 
-const { data: { session } } = await sb.auth.getSession();
-if (session) await start(session);
-else show("auth");
-
-sb.auth.onAuthStateChange(async (event, s) => {
-  if (event === "SIGNED_IN" && s && !state.me) await start(s);
-  if (event === "SIGNED_OUT") location.reload();
+// never call Supabase directly inside this callback (it can freeze login) — defer with setTimeout
+sb.auth.onAuthStateChange((event, s) => {
+  setTimeout(() => {
+    if (event === "PASSWORD_RECOVERY" && s) doRecovery(s);
+    else if (event === "SIGNED_IN" && s && !recovering) boot(s);
+    else if (event === "SIGNED_OUT" && started) location.reload();
+  }, 0);
 });
+
+try {
+  const { data: { session } } = await withTimeout(sb.auth.getSession(), 15000);
+  if (session && recovering) doRecovery(session);
+  else if (session) boot(session);
+  else show("auth");
+} catch (e) {
+  show("auth");
+  $("auth-msg").textContent = ruError(e?.message);
+}
+if (linkError) {
+  history.replaceState(null, "", location.pathname);
+  $("auth-msg").textContent = "Ссылка из письма устарела или уже использована. Введите email и нажмите «Забыли пароль?» ещё раз.";
+}
